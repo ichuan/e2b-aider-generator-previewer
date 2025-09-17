@@ -6,8 +6,8 @@ A collection of Python utilities for AI-powered code generation and live preview
 
 - **`generator.py`**: AI code generation using Aider in E2B sandboxes
 - **`previewer.py`**: Live preview server for web applications in E2B sandboxes  
-- **`e2b_dev_server_manager.py`**: Development server management utilities
-- **`dev_server_examples.py`**: Usage examples for development server manager
+- **`example_usage.py`**: Comprehensive usage examples for both generator and preview
+- **`test_generator.py`**: Unit tests for the generator functionality
 
 ## Features
 
@@ -26,15 +26,8 @@ A collection of Python utilities for AI-powered code generation and live preview
 - 🌐 **Live Preview**: Start development servers for web applications
 - 🔍 **Auto-Detection**: Automatically detects project type and server configuration
 - 📦 **Dependency Management**: Installs Node.js and Python dependencies automatically
-- 🛠️ **Multiple Frameworks**: Supports static sites, Node.js, FastAPI, and more
+- 🛠️ **Multiple Frameworks**: Supports static sites, Node.js, and FastAPI applications
 - 🔗 **External Access**: Provides public URLs for accessing running applications
-
-### Dev Server Manager (`e2b_dev_server_manager.py`)
-- 🎛️ **Server Management**: Manage multiple development servers in parallel
-- 🔧 **Framework Support**: Built-in support for Next.js, FastAPI, Node.js, Vite, React, Vue
-- 📊 **Health Monitoring**: Check server health and get logs
-- 🔄 **Background Processes**: Run servers in background with proper cleanup
-- 🌐 **URL Management**: Automatic public URL generation for each server
 
 ## Installation
 
@@ -195,32 +188,6 @@ with Sandbox.create(timeout=3600) as sandbox:
         print(f"Preview running at: {preview_url}")
 ```
 
-### Dev Server Manager - Python API
-
-```python
-from e2b_code_interpreter import Sandbox
-from e2b_dev_server_manager import E2BDevServerManager, ServerType
-
-# Create sandbox and manager
-with Sandbox.create(timeout=3600) as sandbox:
-    manager = E2BDevServerManager(sandbox)
-    
-    # Start a FastAPI server
-    result = manager.start_dev_server(
-        server_type=ServerType.FASTAPI,
-        working_dir="/tmp/project"
-    )
-    
-    if result.success:
-        print(f"FastAPI server running at: {result.public_url}")
-        
-        # Check server health
-        is_healthy = manager.check_server_health(ServerType.FASTAPI, 8000)
-        print(f"Server health: {is_healthy}")
-        
-        # Stop the server when done
-        manager.stop_dev_server(ServerType.FASTAPI, 8000)
-```
 
 ### Environment Variable Configuration
 
@@ -237,7 +204,7 @@ python generator.py "Create a program"
 
 ## Examples
 
-See `dev_server_examples.py` for comprehensive examples including:
+See `example_usage.py` for comprehensive examples including:
 
 - Simple hello world program
 - Flask web application
@@ -249,18 +216,13 @@ The live preview functionality supports various server types:
 
 - **Auto Detection**: Automatically detects the server type based on generated files
 - **Static HTML**: Serves static HTML, CSS, and JavaScript files
-- **Next.js**: Starts Next.js development server
+- **Node.js**: Starts Node.js development servers
 - **FastAPI**: Starts FastAPI development server with auto-reload
-- **Node.js**: Starts Node.js applications
-- **Vite**: Starts Vite development server
-- **React**: Starts React development server
-- **Vue**: Starts Vue development server
-- **Python**: Starts Python HTTP server
 
 ```bash
 # Generate code and then preview it
-python generator.py "Create a React app with routing" --output ./my-app
-python previewer.py --path ./my-app --type react
+python generator.py "Create a React app with package.json" --output ./my-app
+python previewer.py --path ./my-app --type nodejs --port 3000
 
 # Generate a FastAPI app and preview it
 python generator.py "Create a REST API with FastAPI" --output ./my-api
@@ -268,7 +230,7 @@ python previewer.py --path ./my-api --type fastapi --port 9000
 
 # Generate a static website and preview it
 python generator.py "Create a portfolio website" --output ./my-website
-python previewer.py --path ./my-website --type static
+python previewer.py --path ./my-website --type static --port 8000
 ```
 
 ## Live Preview Server
@@ -286,13 +248,11 @@ The preview functionality provides a complete development environment:
 
 The auto-detection feature analyzes generated files to determine the server type:
 
-- **package.json** with "next" → Next.js server
-- **package.json** with "react" → React server  
-- **package.json** with "vue" → Vue server
-- **main.py** with "fastapi" → FastAPI server
+- **package.json** → Node.js server
+- **main.py** with "fastapi" or "uvicorn" → FastAPI server
 - **main.py** with "flask" → FastAPI server
 - **.html** files → Static HTML server
-- **.js/.ts** files → Static HTML server
+- **.css/.js/.ts** files → Static HTML server
 
 ### Supported Preview Types
 
@@ -300,13 +260,8 @@ The auto-detection feature analyzes generated files to determine the server type
 |------|-------------|-------------|
 | `auto` | Automatically detect server type | 8000 |
 | `static` | Static file server | 8000 |
-| `nextjs` | Next.js development server | 3000 |
-| `fastapi` | FastAPI development server | 8000 |
 | `nodejs` | Node.js application server | 3000 |
-| `vite` | Vite development server | 5173 |
-| `react` | React development server | 3000 |
-| `vue` | Vue development server | 5173 |
-| `python` | Python HTTP server | 8000 |
+| `fastapi` | FastAPI development server | 8000 |
 
 ## Environment Variables
 
@@ -358,13 +313,10 @@ Dataclass containing the results of code generation.
 
 ```bash
 # Run generator tests
-python -m pytest test_e2b_aider_generator.py -v
-
-# Run dev server manager tests
-python -m pytest test_e2b_dev_server_manager.py -v
+python -m pytest test_generator.py -v
 
 # Run with coverage
-python -m pytest test_e2b_aider_generator.py --cov=generator --cov-report=html
+python -m pytest test_generator.py --cov=generator --cov-report=html
 ```
 
 ## Error Handling
