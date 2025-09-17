@@ -18,6 +18,9 @@ A collection of Python utilities for AI-powered code generation and live preview
 - ⏱️ **Timeout Control**: Configurable timeout for long-running operations
 - 📊 **Result Tracking**: Detailed execution results and performance metrics
 - 🔄 **Real-time Output**: Streaming output shows Aider's progress in real-time
+- 🔒 **Secure Prompt Handling**: Complex prompts safely handled via temporary files
+- 📝 **Flexible Input**: Supports command-line, file, and stdin input methods
+- 🛡️ **Shell Injection Protection**: Uses file-based prompt passing to avoid security issues
 
 ### Preview (`previewer.py`)
 - 🌐 **Live Preview**: Start development servers for web applications
@@ -77,6 +80,21 @@ python generator.py "Create code with custom API" --model gpt-3.5-turbo --api-ba
 
 # Set timeout
 python generator.py "Create a large project" --timeout 600
+
+# Read prompt from file (for large/complex prompts)
+python generator.py --prompt-file requirements.txt --output ./generated
+
+# Read prompt from stdin (supports piping and heredoc)
+echo "Create a web API" | python generator.py --stdin --output ./api
+
+# Use heredoc for complex multi-line prompts
+python generator.py --stdin --output ./app << 'EOF'
+Create a React application with:
+- User authentication system
+- Dashboard with charts
+- REST API integration
+- Responsive design
+EOF
 ```
 
 ### Preview - Command Line Interface
@@ -106,19 +124,38 @@ client = E2BAiderClient(
     openai_api_base="https://api.example.com/v1"
 )
 
-# Generate code
+# Generate code with simple prompt
 result = client.generate_code(
     prompt="Create a Python program that calculates factorial"
 )
+
+# Generate code with complex prompts (automatically handled securely)
+complex_prompt = """
+Create a comprehensive web application with:
+- User authentication and authorization
+- Database models for users and posts
+- REST API endpoints
+- Frontend with React
+- Unit tests and documentation
+"""
+
+result = client.generate_code(prompt=complex_prompt)
 
 if result.success:
     print("Generated files:")
     for filename, content in result.generated_files.items():
         print(f"{filename}:")
-        print(content)
+        print(content[:100] + "..." if len(content) > 100 else content)
+    print(f"Execution time: {result.execution_time:.2f} seconds")
 else:
     print(f"Error: {result.error_message}")
 ```
+
+**Security Features:**
+- 🔒 **Secure Prompt Handling**: Complex prompts are automatically written to temporary files to avoid shell injection
+- 🛡️ **No Shell Escaping Issues**: Uses `--message-file` instead of command-line arguments for prompts
+- 📁 **Automatic Cleanup**: Temporary files are automatically excluded from generated results
+- 🔐 **Isolated Execution**: All code generation happens in secure E2B sandboxes
 
 ### Preview - Python API
 

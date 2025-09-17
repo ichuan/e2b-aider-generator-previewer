@@ -179,10 +179,14 @@ class E2BAiderClient:
         self, sandbox, prompt: str, project_dir: str, model: str, timeout: int
     ) -> str:
         """Run Aider with the given prompt."""
-        # Build the aider command with proper parameters
-        escaped_prompt = prompt.replace("'", "'\\''")  # Escape single quotes
+        # Write prompt to a temporary file to avoid shell escaping issues
+        prompt_file = f'{project_dir}/.aider_prompt.txt'
+        try:
+            sandbox.files.write(prompt_file, prompt.encode('utf-8'))
+        except Exception as e:
+            raise RuntimeError(f'Failed to write prompt file: {e}')
 
-        # Start with base command
+        # Build the aider command with proper parameters
         aider_cmd = f"aider --model '{model}' "
 
         # Add API key parameter
@@ -192,9 +196,9 @@ class E2BAiderClient:
         if self.openai_api_base:
             aider_cmd += f"--openai-api-base '{self.openai_api_base}' "
 
-        # Add the rest of the parameters
+        # Use --message-file instead of --message to avoid shell escaping
         aider_cmd += (
-            f"--message '{escaped_prompt}' "
+            f"--message-file '{prompt_file}' "
             f'--no-git '  # Disable git for simplicity
             f'--yes'  # Auto-confirm changes
         )
@@ -259,6 +263,11 @@ class E2BAiderClient:
 
             # Get relative path
             rel_path = file_path.replace(f'{project_dir}/', '')
+            
+            # Skip temporary files
+            skip_files = ['.aider.input.history', '.aider.chat.history.md']
+            if rel_path.startswith('.aider_prompt.txt') or rel_path in skip_files:
+                continue
 
             # Read file content
             try:
@@ -273,11 +282,40 @@ class E2BAiderClient:
 def main():
     """Main function for command-line usage."""
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(
-        description='Generate code using Aider in E2B sandbox'
+        description='Generate code using Aider in E2B sandbox',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Simple prompt
+  python generator.py "Create a hello world script"
+  
+  # Prompt from file
+  python generator.py --prompt-file prompt.txt
+  
+  # Prompt from stdin
+  echo "Create a web app" | python generator.py --stdin
+  
+  # Large prompt with heredoc
+  python generator.py --stdin << 'EOF'
+  Create a complex web application with:
+  - User authentication
+  - Database integration
+  - REST API endpoints
+  EOF
+        """
     )
-    parser.add_argument('prompt', help='The prompt to give to Aider')
+    
+    # Add prompt source options (mutually exclusive)
+    prompt_group = parser.add_mutually_exclusive_group(required=True)
+    prompt_group.add_argument('prompt', nargs='?', help='The prompt to give to Aider')
+    prompt_group.add_argument('--prompt-file', '-f', help='Read prompt from file')
+    prompt_group.add_argument(
+        '--stdin', action='store_true', help='Read prompt from stdin'
+    )
+    
     parser.add_argument('--output', '-o', help='Output directory for generated files')
     parser.add_argument('--model', help='Aider model to use (overrides OPENAI_MODEL)')
     parser.add_argument(
@@ -287,13 +325,36 @@ def main():
 
     args = parser.parse_args()
 
+    # Get prompt from appropriate source
+    if args.stdin:
+        if sys.stdin.isatty():
+            parser.error("stdin requested but no input provided")
+        prompt = sys.stdin.read()
+    elif args.prompt_file:
+        try:
+            with open(args.prompt_file, 'r', encoding='utf-8') as f:
+                prompt = f.read()
+        except FileNotFoundError:
+            print(f'❌ Error: Prompt file not found: {args.prompt_file}')
+            sys.exit(1)
+        except Exception as e:
+            print(f'❌ Error reading prompt file: {e}')
+            sys.exit(1)
+    else:
+        prompt = args.prompt
+
     # Create client with custom settings
     client = E2BAiderClient(openai_model=args.model, openai_api_base=args.api_base)
 
-    print(f'Generating code with prompt: {args.prompt}')
+    # Show prompt preview for large prompts
+    if len(prompt) > 100:
+        print(f'📝 Generating code with prompt ({len(prompt)} chars):')
+        print(f'   "{prompt[:100]}..."')
+    else:
+        print(f'📝 Generating code with prompt: {prompt}')
 
     # Generate code
-    result = client.generate_code(prompt=args.prompt, timeout=args.timeout)
+    result = client.generate_code(prompt=prompt, timeout=args.timeout)
 
     # Print results
     print('\n' + '=' * 50)
