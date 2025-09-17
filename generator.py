@@ -13,6 +13,8 @@ from typing import Dict, Optional
 
 from dotenv import load_dotenv
 
+# Removed E2BDevServerManager dependency - using direct commands now
+
 load_dotenv()
 
 
@@ -138,6 +140,12 @@ class E2BAiderClient:
 
         except Exception as e:
             execution_time = time.time() - start_time
+
+            # The sandbox is automatically cleaned up by the context manager
+            # but we log the error for debugging
+            print(f'⚠️  Error occurred during code generation: {e}')
+            print('🧹 Sandbox will be automatically cleaned up by context manager')
+
             return CodeGenerationResult(
                 success=False,
                 output='',
@@ -191,21 +199,45 @@ class E2BAiderClient:
             f'--yes'  # Auto-confirm changes
         )
 
-        print(f'🔍 DEBUG: Running aider command: {aider_cmd}')
+        print('🤖 Starting Aider with streaming output...')
+        print(f'🔧 Command: {aider_cmd}')
+        print('-' * 50)
 
-        # Run aider without environment variables
-        result = sandbox.commands.run(aider_cmd, cwd=project_dir, timeout=timeout)
+        # Collect output for return while streaming
+        stdout_buffer = []
+        stderr_buffer = []
 
-        print(f'🔍 DEBUG: Aider exit code: {result.exit_code}')
-        print(f'🔍 DEBUG: Aider stderr: {result.stderr}')
+        def on_stdout(data):
+            """Handle stdout streaming data."""
+            print(data, end='', flush=True)
+            stdout_buffer.append(data)
+
+        def on_stderr(data):
+            """Handle stderr streaming data."""
+            print(data, end='', flush=True)
+            stderr_buffer.append(data)
+
+        # Run aider with streaming output
+        result = sandbox.commands.run(
+            aider_cmd,
+            cwd=project_dir,
+            timeout=timeout,
+            on_stdout=on_stdout,
+            on_stderr=on_stderr,
+        )
+
+        print('-' * 50)
+        print(f'🔍 Aider completed with exit code: {result.exit_code}')
 
         if result.exit_code != 0:
             # Don't raise exception for authentication errors, let it continue
-            print(f'⚠️  Aider execution had issues but continuing: {result.stderr}')
+            print('⚠️  Aider execution had issues but continuing')
 
         # Combine stdout and stderr for the output
+        stdout_content = ''.join(stdout_buffer)
+        stderr_content = ''.join(stderr_buffer)
         output = (
-            f'STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}\n'
+            f'STDOUT:\n{stdout_content}\nSTDERR:\n{stderr_content}\n'
             f'Return code: {result.exit_code}'
         )
         return output
@@ -229,11 +261,11 @@ class E2BAiderClient:
             rel_path = file_path.replace(f'{project_dir}/', '')
 
             # Read file content
-            cat_result = sandbox.commands.run(f"cat '{file_path}'")
-            if cat_result.exit_code == 0:
-                files_dict[rel_path] = cat_result.stdout
-            else:
-                files_dict[rel_path] = f'Error reading file: {cat_result.stderr}'
+            try:
+                file_content = sandbox.files.read(file_path)
+                files_dict[rel_path] = file_content.decode('utf-8')
+            except Exception as e:
+                files_dict[rel_path] = f'Error reading file: {str(e)}'
 
         return files_dict
 
