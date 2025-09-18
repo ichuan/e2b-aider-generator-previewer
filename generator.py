@@ -272,7 +272,10 @@ class E2BAiderClient:
             # Read file content
             try:
                 file_content = sandbox.files.read(file_path)
-                files_dict[rel_path] = file_content.decode('utf-8')
+                if isinstance(file_content, bytes):
+                    files_dict[rel_path] = file_content.decode('utf-8')
+                else:
+                    files_dict[rel_path] = file_content
             except Exception as e:
                 files_dict[rel_path] = f'Error reading file: {str(e)}'
 
